@@ -91,7 +91,7 @@ public static class AvailabilityCalculator
     /// Ambiguous times (fall-back overlap) resolve to the earlier instant for window starts and the
     /// later instant for window ends, so a window never shrinks across a transition.
     /// </summary>
-    internal static DateTimeOffset ToUtc(DateTime local, TimeZoneInfo zone, bool preferLater)
+    public static DateTimeOffset ToUtc(DateTime local, TimeZoneInfo zone, bool preferLater)
     {
         local = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
 
