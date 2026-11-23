@@ -1,0 +1,66 @@
+# Local stack: API + PostgreSQL + Mailpit (SMTP catcher) + Aspire Dashboard (OTLP traces/metrics/logs).
+#   docker compose up --build
+#   API / Swagger UI   http://localhost:8080/swagger
+#   Mailpit            http://localhost:8025
+#   Aspire Dashboard   http://localhost:18888
+name: booket
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/Booket.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Booket: "Host=postgres;Port=5432;Database=booket;Username=booket;Password=${POSTGRES_PASSWORD:-booket}"
+      # Dev-only default; override with JWT_SIGNING_KEY in a .env file for anything shared.
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-compose-dev-signing-key-change-me-0123456789}"
+      Database__MigrateOnStartup: "true"
+      Database__SeedDemoData: "true"
+      Smtp__Host: mailpit
+      Smtp__Port: "1025"
+      Outbox__PollInterval: "00:00:05"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      aspire-dashboard:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: booket
+      POSTGRES_USER: booket
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-booket}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U booket -d booket"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "8025:8025" # web UI
+      - "1025:1025" # SMTP
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.5
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "18888:18888" # dashboard UI
+
+volumes:
+  postgres-data:
