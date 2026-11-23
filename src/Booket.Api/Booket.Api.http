@@ -1,0 +1,88 @@
+### Booket API - example requests (VS Code REST Client / Visual Studio / Rider)
+### Run `docker compose up --build` first. Demo users share the password Passw0rd!
+
+@host = http://localhost:8080
+@api = {{host}}/api/v1
+
+### Look up the seeded demo business by slug
+# @name business
+GET {{api}}/businesses/demo-barbershop
+
+###
+@businessId = {{business.response.body.$.id}}
+
+### Services
+# @name services
+GET {{api}}/businesses/{{businessId}}/services
+
+###
+@serviceId = {{services.response.body.$[0].id}}
+
+### Staff who perform the service
+GET {{api}}/businesses/{{businessId}}/staff?serviceId={{serviceId}}
+
+### Log in as the demo customer
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "customer@demo.booket.local", "password": "Passw0rd!" }
+
+###
+@token = {{login.response.body.$.accessToken}}
+@refreshToken = {{login.response.body.$.refreshToken}}
+
+### Open slots (business-local dates). Pick a weekday in the next few weeks.
+# @name availability
+GET {{api}}/businesses/{{businessId}}/availability?serviceId={{serviceId}}&from={{$datetime "YYYY-MM-DD" 3 d}}&to={{$datetime "YYYY-MM-DD" 9 d}}
+
+### Book the first open slot with any staff member (idempotent retries via Idempotency-Key)
+# @name booking
+POST {{api}}/businesses/{{businessId}}/bookings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "serviceId": "{{serviceId}}",
+  "start": "{{availability.response.body.$.days[0].slots[0].start}}",
+  "notes": "First visit"
+}
+
+###
+@bookingId = {{booking.response.body.$.id}}
+
+### My bookings
+GET {{api}}/bookings/me?upcoming=true
+Authorization: Bearer {{token}}
+
+### Reschedule to another open slot
+POST {{api}}/bookings/{{bookingId}}/reschedule
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "newStart": "{{availability.response.body.$.days[0].slots[4].start}}" }
+
+### Cancel
+POST {{api}}/bookings/{{bookingId}}/cancel
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "reason": "Something came up" }
+
+### Rotate the refresh token
+POST {{api}}/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### Owner: business calendar
+# @name ownerLogin
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "email": "owner@demo.booket.local", "password": "Passw0rd!" }
+
+###
+GET {{api}}/businesses/{{businessId}}/bookings?from={{$datetime "YYYY-MM-DD"}}&to={{$datetime "YYYY-MM-DD" 30 d}}
+Authorization: Bearer {{ownerLogin.response.body.$.accessToken}}
