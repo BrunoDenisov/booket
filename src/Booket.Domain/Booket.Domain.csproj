@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Intentionally no package references: the domain is plain C#. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Booket.Domain.Tests" />
+  </ItemGroup>
+</Project>

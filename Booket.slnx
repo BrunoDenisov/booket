@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Booket.Api/Booket.Api.csproj" />
+    <Project Path="src/Booket.Application/Booket.Application.csproj" />
+    <Project Path="src/Booket.Domain/Booket.Domain.csproj" />
+    <Project Path="src/Booket.Infrastructure/Booket.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Booket.Api.IntegrationTests/Booket.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Booket.Application.Tests/Booket.Application.Tests.csproj" />
+    <Project Path="tests/Booket.Domain.Tests/Booket.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
