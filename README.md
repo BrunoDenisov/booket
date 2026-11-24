@@ -54,7 +54,7 @@ staff members, three services and weekly hours. All demo users share the passwor
 | Admin | `admin@booket.local` |
 
 [`src/Booket.Api/Booket.Api.http`](src/Booket.Api/Booket.Api.http) walks through the whole flow (log in, find
-slots, book, reschedule, cancel) from VS Code, Rider or Visual Studio.
+slots, book, reschedule, cancel). It is written for the JetBrains HTTP Client (Rider/IntelliJ); run the requests top to bottom.
 
 ### Try it with curl
 

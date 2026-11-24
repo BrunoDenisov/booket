@@ -1,88 +1,145 @@
-### Booket API - example requests (VS Code REST Client / Visual Studio / Rider)
-### Run `docker compose up --build` first. Demo users share the password Passw0rd!
+### Booket API - example requests
+### Written for the JetBrains HTTP Client (Rider / IntelliJ). Run the requests top to bottom:
+### each response handler (> {% ... %}) stores values that later requests use.
+### Start the stack first with `docker compose up --build`. Demo users share the password Passw0rd!
 
 @host = http://localhost:8080
 @api = {{host}}/api/v1
 
-### Look up the seeded demo business by slug
-# @name business
+### 1. Look up the seeded demo business by slug
 GET {{api}}/businesses/demo-barbershop
 
-###
-@businessId = {{business.response.body.$.id}}
+> {%
+    client.test("business found", () => client.assert(response.status === 200, "status " + response.status));
+    client.global.set("businessId", response.body.id);
+%}
 
-### Services
-# @name services
+### 2. Services the business offers
 GET {{api}}/businesses/{{businessId}}/services
 
-###
-@serviceId = {{services.response.body.$[0].id}}
+> {%
+    client.test("services listed", () => client.assert(response.status === 200, "status " + response.status));
+    client.global.set("serviceId", response.body[0].id);
+%}
 
-### Staff who perform the service
+### 3. Staff who perform that service
 GET {{api}}/businesses/{{businessId}}/staff?serviceId={{serviceId}}
 
-### Log in as the demo customer
-# @name login
+> {%
+    client.test("staff listed", () => client.assert(response.status === 200, "status " + response.status));
+%}
+
+### 4. Log in as the demo customer (also picks a search window starting 2 days out,
+###    so the booking stays outside the demo shop's 12h cancellation cutoff)
 POST {{api}}/auth/login
 Content-Type: application/json
 
 { "email": "customer@demo.booket.local", "password": "Passw0rd!" }
 
-###
-@token = {{login.response.body.$.accessToken}}
-@refreshToken = {{login.response.body.$.refreshToken}}
+> {%
+    client.test("customer logged in", () => client.assert(response.status === 200, "status " + response.status));
+    client.global.set("token", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
 
-### Open slots (business-local dates). Pick a weekday in the next few weeks.
-# @name availability
-GET {{api}}/businesses/{{businessId}}/availability?serviceId={{serviceId}}&from={{$datetime "YYYY-MM-DD" 3 d}}&to={{$datetime "YYYY-MM-DD" 9 d}}
+    const day = 24 * 60 * 60 * 1000;
+    const iso = (offsetDays) => new Date(Date.now() + offsetDays * day).toISOString().slice(0, 10);
+    client.global.set("from", iso(2));
+    client.global.set("to", iso(8));
+%}
 
-### Book the first open slot with any staff member (idempotent retries via Idempotency-Key)
-# @name booking
+### 5. Open slots (business-local dates)
+GET {{api}}/businesses/{{businessId}}/availability?serviceId={{serviceId}}&from={{from}}&to={{to}}
+
+> {%
+    client.test("availability returned", () => client.assert(response.status === 200, "status " + response.status));
+
+    // Collect slots across all days; weekend days simply have none.
+    const slots = [];
+    for (const day of response.body.days) {
+        for (const slot of day.slots) {
+            slots.push(slot.start);
+        }
+    }
+
+    client.test("has open slots", () => client.assert(slots.length > 4, "only " + slots.length + " slots"));
+    client.global.set("slotStart", slots[0]);
+    client.global.set("rescheduleStart", slots[4]);
+%}
+
+### 6. Book the first open slot with any staff member (Idempotency-Key makes retries safe)
 POST {{api}}/businesses/{{businessId}}/bookings
 Authorization: Bearer {{token}}
 Content-Type: application/json
-Idempotency-Key: {{$guid}}
+Idempotency-Key: {{$random.uuid}}
 
 {
   "serviceId": "{{serviceId}}",
-  "start": "{{availability.response.body.$.days[0].slots[0].start}}",
+  "start": "{{slotStart}}",
   "notes": "First visit"
 }
 
-###
-@bookingId = {{booking.response.body.$.id}}
+> {%
+    client.test("booking created", () => client.assert(response.status === 201, "status " + response.status));
+    client.global.set("bookingId", response.body.id);
+%}
 
-### My bookings
+### 7. My upcoming bookings
 GET {{api}}/bookings/me?upcoming=true
 Authorization: Bearer {{token}}
 
-### Reschedule to another open slot
+> {%
+    client.test("my bookings listed", () => client.assert(response.status === 200, "status " + response.status));
+%}
+
+### 8. Reschedule to another open slot
 POST {{api}}/bookings/{{bookingId}}/reschedule
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{ "newStart": "{{availability.response.body.$.days[0].slots[4].start}}" }
+{ "newStart": "{{rescheduleStart}}" }
 
-### Cancel
+> {%
+    client.test("booking rescheduled", () => client.assert(response.status === 200, "status " + response.status));
+%}
+
+### 9. Cancel
 POST {{api}}/bookings/{{bookingId}}/cancel
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 { "reason": "Something came up" }
 
-### Rotate the refresh token
+> {%
+    client.test("booking cancelled", () => client.assert(response.status === 200, "status " + response.status));
+%}
+
+### 10. Rotate the refresh token (each refresh token works once)
 POST {{api}}/auth/refresh
 Content-Type: application/json
 
 { "refreshToken": "{{refreshToken}}" }
 
-### Owner: business calendar
-# @name ownerLogin
+> {%
+    client.test("token refreshed", () => client.assert(response.status === 200, "status " + response.status));
+    client.global.set("token", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 11. Log in as the owner
 POST {{api}}/auth/login
 Content-Type: application/json
 
 { "email": "owner@demo.booket.local", "password": "Passw0rd!" }
 
-###
-GET {{api}}/businesses/{{businessId}}/bookings?from={{$datetime "YYYY-MM-DD"}}&to={{$datetime "YYYY-MM-DD" 30 d}}
-Authorization: Bearer {{ownerLogin.response.body.$.accessToken}}
+> {%
+    client.test("owner logged in", () => client.assert(response.status === 200, "status " + response.status));
+    client.global.set("ownerToken", response.body.accessToken);
+%}
+
+### 12. Owner: business calendar for the same window
+GET {{api}}/businesses/{{businessId}}/bookings?from={{from}}&to={{to}}
+Authorization: Bearer {{ownerToken}}
+
+> {%
+    client.test("calendar listed", () => client.assert(response.status === 200, "status " + response.status));
+%}
