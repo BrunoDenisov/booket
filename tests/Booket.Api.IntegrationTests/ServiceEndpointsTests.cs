@@ -6,13 +6,10 @@ namespace Booket.Api.IntegrationTests;
 
 public sealed class ServiceEndpointsTests(BooketApiFactory factory) : ApiTestBase(factory)
 {
-    private string ServiceUrl(Guid businessId, Guid serviceId)
-    {
-        return $"/api/v1/businesses/{businessId}/services/{serviceId}";
-    }
+    private static string ServiceUrl(Guid businessId, Guid serviceId) => $"/api/v1/businesses/{businessId}/services/{serviceId}";
 
     [Fact]
-    public async Task Anonymouse_client_can_get_an_active_service()
+    public async Task Anonymous_client_can_get_an_active_service()
     {
         var shop = await CreateShopAsync();
 
@@ -34,7 +31,6 @@ public sealed class ServiceEndpointsTests(BooketApiFactory factory) : ApiTestBas
         var shop = await CreateShopAsync();
 
         var response = await As(shop.OwnerToken).DeleteAsync(ServiceUrl(shop.BusinessId, shop.ServiceId));
-
         response.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         var service = await ReadAsync<ServiceResponse>(await Anonymous().GetAsync(ServiceUrl(shop.BusinessId, shop.ServiceId)));
