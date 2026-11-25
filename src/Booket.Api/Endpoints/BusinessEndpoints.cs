@@ -61,6 +61,12 @@ internal static class BusinessEndpoints
             .WithSummary("List the services a business offers")
             .Produces<IReadOnlyList<ServiceResponse>>();
 
+        group.MapGet("/{serviceId:guid}", async (Guid businessId, Guid serviceId, IHandler<GetServiceQuery, ServiceResponse> handler, CancellationToken ct) =>
+                    (await handler.HandleAsync(new GetServiceQuery(businessId, serviceId), ct)).ToOk())
+            .WithSummary("Get a service")
+            .Produces<ServiceResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         group.MapPost("/", async (Guid businessId, CreateServiceRequest body, IHandler<CreateServiceCommand, ServiceResponse> handler, CancellationToken ct) =>
                 (await handler.HandleAsync(new CreateServiceCommand(businessId, body.Name, body.Description, body.DurationMinutes, body.BufferMinutes, body.Price, body.Currency), ct))
                 .ToCreated(s => $"/api/v1/businesses/{businessId}/services/{s.Id}"))
