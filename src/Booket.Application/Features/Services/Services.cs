@@ -74,6 +74,22 @@ internal sealed class ListServicesHandler(IAppDbContext db, ICurrentUser current
     }
 }
 
+// ---- Get --------------------------------------------------------------------------------------
+
+public sealed record GetServiceQuery(Guid BusinessId, Guid ServiceId);
+
+internal sealed class GetServiceHandler(IAppDbContext db) : IHandler<GetServiceQuery, ServiceResponse>
+{
+    public async Task<Result<ServiceResponse>> HandleAsync(GetServiceQuery request, CancellationToken cancellationToken)
+    {
+        var service = await db.Services.AsNoTracking()
+            .Where(s => s.Id == request.ServiceId && s.BusinessId == request.BusinessId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return service is null ? ServiceErrors.NotFound : ServiceResponse.From(service);
+    }
+}
+
 // ---- Create ---------------------------------------------------------------------------------
 
 public sealed record CreateServiceCommand(
